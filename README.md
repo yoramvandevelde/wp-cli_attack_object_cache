@@ -205,7 +205,11 @@ Solving this issue is easy. Always use the concept of least privilege. If you fo
 ```
 $ sudo -u webuser wp-cli.phar plugin list
 ```
+This will prevent the executed code to do anything on the account which is executing the code.
+
+If you have any comments, suggestions or want to get in touch: *_@sp2.io*
 
 
+Links: 
 - [1] http://wp-cli.org/
 - [2] https://github.com/WordPress/WordPress/blob/795af804ba83ab4ecb36477ced49980cf9f117f2/wp-includes/load.php#L474
