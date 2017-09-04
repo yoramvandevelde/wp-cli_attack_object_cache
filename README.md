@@ -70,7 +70,7 @@ Although this code is part of a plugin it is executed with every request to Word
 
 So let's see this in action:
 ```
-stat wp-content/object-cache.php
+$ stat wp-content/object-cache.php
 stat: cannot stat `wp-content/object-cache.php': No such file or directory
 $ wp-cli.phar plugin list --skip-themes --skip-plugins
 +-----------+----------+--------+---------+
