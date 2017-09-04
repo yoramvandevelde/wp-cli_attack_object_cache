@@ -1,4 +1,4 @@
-# Attacking hosting infrastructure through WP-CLI
+# Attacking hosting webservers through WP-CLI
 
 WP-CLI[1] is the command-line interface for WordPress, as their site claims. It gives an interface to functionality of WordPress. This is quite cool and is used by a lot of (WordPress) hosting companies to troubleshoot and support their customers. 
 
