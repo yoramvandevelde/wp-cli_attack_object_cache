@@ -167,7 +167,7 @@ crontab /tmp/.cronfile 2>&1 > /dev/null;
 
 If this user logs into the system again the user executes the cronjob is inserted as the user and the exploit is executed. Now this is really, really interesting if the webhoster does updates of WordPress core through a cronjob:
 ```
-* 0 * * * wp-cli.phar plugin update --all && chown webuser:webuser httpdocs/
+* 0 * * * wp-cli.phar core update && chown -R webuser:webuser httpdocs/
 ```
 This would give us code execution for the user root on the webserver
 
