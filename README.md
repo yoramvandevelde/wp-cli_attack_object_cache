@@ -209,6 +209,7 @@ In some rare cases it might be so that we don't need Patrick. Might be so that h
 ```
 This would give us code execution as root on the webserver, imagine the damage that we could do.
 
+## Mitigation
 While this problem might be quite serious the problem lies not with WP-CLI or even WordPress. The problem is that the hostingcompany doesn't understand what they are running. Using WP-CLI makes life very easy for WordPress Hosters, but you need to understand what this application does under the hood. The solution to this issue is fairly easy. Always use the concept of least privilege. If you force the use of the non-privileged webuser all problems will be containt to the rights this user has. This can be done with the `sudo` command. Yes, it has uses other than `sudo su` and `sudo make me a sandwich`:
 ```
 $ sudo -u webuser wp-cli.phar plugin list
