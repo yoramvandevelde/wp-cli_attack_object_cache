@@ -134,7 +134,7 @@ Although the execution of PHP (and so wp-cli.phar) will have no way to execute s
         @curl_close($c);
 ```
 
-So now we contact customer support and say that we cannot upgrade a plugin. When they execute wp-cli.phar the code in object-cache.php would be executed with their privileges. They would see the following:
+So now we contact customer support and say that we cannot upgrade a plugin. When they execute wp-cli.phar the code in object-cache.php would be executed with their privileges. To be safe they use the `--skip-themes` and `--skip-plugins` arguments. They would see the following:
 ```
 $ wp-cli.phar plugin list --skip-plugins --skip-themes
 +-------------------------------+----------+--------+---------+
