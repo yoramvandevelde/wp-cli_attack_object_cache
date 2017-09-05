@@ -48,7 +48,7 @@ This is where object caching comes in. Persistent object caching is a caching st
 In WordPress this can be enabled through the optional wp-content/object-cache.php file. This file is intended for caching plugins to provide persistent object caching for WordPress objects. This file is not part of WordPress core but is loaded on startup if it exists by wp-includes/load.php:
 
 wp-includes/load.php [2]
-```
+```php
 function wp_start_object_cache() {
 	global $wp_filter;
 	$first_init = false;
@@ -113,7 +113,7 @@ When a local system user (ie. sysadmins, support, client connecting via ssh, cro
 Let's assume we have control over a WordPress site hosted by hostingcompany X. This can be because we payed them to or someone else did and we took over their WordPress. Hostingcompany X has this superrad employee supportdeskcalled Patrick. Why, Patrick you ask, well just because they do. 
 
 Let's inject the following into `wp-content/object-cache.php` on this WordPress install. Read the comment in the code to see what it does:
-```
+```php
 <?php    
 	@$uid = posix_getuid();
 	if( isset($uid) and $uid == 0) {
