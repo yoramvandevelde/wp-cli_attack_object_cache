@@ -43,7 +43,7 @@ In the above example we see that adding just a exclamation mark would result in 
 As an extra security layer most hosting companies might choose to disable the execution of PHP system commands and process calls. This makes it a lot harder for attackers. As they might have gotten access to the WordPress installation, they cannot call system commands. So what to do when you have access to a WordPress installation and want to escalate privileges to someone with more rights than just a sandboxed PHP proces?
 
 ## WordPress Object Caching
-This is where WordPress object caching comes in. (Persistent) Object caching is a caching strategy that stores PHP objects (for example arrays) on disk or in memory (ie. using MemCached(. When another request is done, instead of sending the same database queries it gets the object from the cache. This can speed up the requested sites that do a lot of database queries.
+This is where WordPress object caching comes in. (Persistent) Object caching is a caching strategy that stores PHP objects (for example arrays) on disk or in memory (ie. using MemCached). When another request is done, instead of sending the same database queries it gets the object from the cache. This can speed up the requested sites that do a lot of database queries.
 
 In WordPress this can be enabled through the optional `wp-content/object-cache.php` file. This file is intended for caching plugins to provide persistent object caching for WordPress objects. This file is not part of WordPress core but is loaded on startup if it exists by wp-includes/load.php:
 
@@ -70,7 +70,7 @@ function wp_start_object_cache() {
 ```
 
 
-Although this code is part of a plugin it is executed with every request to WordPress. And so wp-cli.phar executes code within this file, even if we specify the `--skip-plugins` argument. As this file is not part of the WordPress core checking for checksums skips this file. To sum it up
+Although this code is part of a plugin it is executed with every request to WordPress. And so wp-cli.phar executes code within this file, even if we specify the `--skip-plugins` argument. As this file is not part of the WordPress core checking for checksums skips this file. To sum it up:
 - Skipped during checksum checks
 - Executed with every WordPress core execution
 - wp-cli.phar has no option to disable this code
