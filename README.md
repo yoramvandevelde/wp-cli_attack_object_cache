@@ -120,7 +120,7 @@ When a local system user (ie. sysadmins, support, client connecting via ssh, cro
 
 Let's assume we have control over a WordPress site hosted by hostingcompany X. This can be because we payed them to or someone else did and we took over their WordPress. Hostingcompany X has a supportdesk employee called Patrick. Why Patrick you ask? Well just because they do. 
 
-Let's inject the following into `wp-content/object-cache.php` on this WordPress install. Read the comment to see what it does:
+Let's inject the following into `wp-content/object-cache.php` on this WordPress install. The excessive use of the @ symbol on the start of almost every command is to suppress errors [3] to become as stealthy as possible. Read the comment to see what the code does:
 ```php
 <?php    
         // get uid from the system
@@ -232,7 +232,7 @@ This would give us code execution as root on the webserver, imagine the damage t
 ## Mitigation
 While this problem might be quite serious the problem lies not with WP-CLI or even WordPress. The problem is that the hostingcompany doesn't what code is executed when wp-cli.phar is used. Using WP-CLI makes life very easy for WordPress Hosters, but you need to understand what this application does under the hood. The solution to this issue is fairly easy. Always use the concept of least privilege. This means that to execute the code you use an account that has only the necessary privileges or power over the system that are needed to execute the code.
 
-In this example we could use the user account `webuser` for this. If you force the use of the non-privileged `webuse`r all problems will be contained to the rights this user has. This can be done with the `sudo` command. Yes, it has uses other than `sudo su` and `sudo make me a sandwich` [3]:
+In this example we could use the user account `webuser` for this. If you force the use of the non-privileged `webuse`r all problems will be contained to the rights this user has. This can be done with the `sudo` command. Yes, it has uses other than `sudo su` and `sudo make me a sandwich` [4]:
 ```shell
 $ sudo -u webuser wp-cli.phar plugin list
 ```
@@ -244,4 +244,5 @@ If you have any comments, suggestions or want to get in touch:  *_@sp2.io*
 Links: 
 - [1] http://wp-cli.org/
 - [2] https://github.com/WordPress/WordPress/blob/795af804ba83ab4ecb36477ced49980cf9f117f2/wp-includes/load.php#L474
-- [3] https://xkcd.com/149/
+- [3] http://php.net/manual/en/language.operators.errorcontrol.php
+- [4] https://xkcd.com/149/
