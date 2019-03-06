@@ -230,7 +230,7 @@ This would give us code execution as root on the webserver, imagine the damage t
 
 
 ## Mitigation
-While this problem might be quite serious the problem lies not with WP-CLI or even WordPress. The problem is that the hostingcompany doesn't what code is executed when wp-cli.phar is used. Using WP-CLI makes life very easy for WordPress Hosters, but you need to understand what this application does under the hood. The solution to this issue is fairly easy. Always use the concept of least privilege. This means that to execute the code you use an account that has only the necessary privileges or power over the system that are needed to execute the code.
+While this problem might be quite serious the problem lies not with WP-CLI or even WordPress. The problem is that the hostingcompany doesn't know what code is executed when wp-cli.phar is used. Using WP-CLI makes life very easy for WordPress Hosters, but you need to understand what this application does under the hood. The solution to this issue is fairly easy. Always use the concept of least privilege. This means that to execute the code you use an account that has only the necessary privileges or power over the system that are needed to execute the code.
 
 In this example we could use the user account `webuser` for this. If you force the use of the non-privileged `webuse`r all problems will be contained to the rights this user has. This can be done with the `sudo` command. Yes, it has uses other than `sudo su` and `sudo make me a sandwich` [4]:
 ```shell
